@@ -1,0 +1,34 @@
+Alex Rivera
+
+Software Engineer
+
+SKILLS
+JavaScript, TypeScript, React, Node.js, Python, AWS, Docker, Kubernetes, PostgreSQL, MongoDB, Git, CI/CD, REST APIs, GraphQL, Redis, Terraform
+
+EXPERIENCE
+
+Senior Software Engineer — CloudTech Solutions (2021 – Present)
+- Architected and built microservices platform serving 500K+ daily active users
+- Led migration from monolithic architecture to containerized microservices
+- Mentored 4 junior developers and conducted code reviews
+- Reduced API response times by 45% through optimization
+
+Software Engineer — WebDev Inc (2018 – 2021)
+- Built customer-facing React applications with TypeScript
+- Developed RESTful APIs using Node.js and Express
+- Implemented automated testing pipeline achieving 90% code coverage
+- Collaborated with product team in agile sprints
+
+Junior Developer — StartupHub (2016 – 2018)
+- Developed features for e-commerce platform using JavaScript
+- Maintained and improved legacy PHP codebase
+- Assisted with database design and optimization
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of California, Berkeley (2016)
+GPA: 3.7/4.0
+
+CERTIFICATIONS
+- AWS Certified Solutions Architect – Associate
+- Certified Kubernetes Administrator (CKA)
