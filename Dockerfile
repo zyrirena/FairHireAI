@@ -2,9 +2,10 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install Python for PDF report generation
+# Install Python, Presidio, and reportlab for PDF generation
 RUN apt-get update && apt-get install -y python3 python3-pip --no-install-recommends \
-    && pip3 install reportlab --break-system-packages \
+    && pip3 install reportlab presidio-analyzer presidio-anonymizer spacy --break-system-packages \
+    && python3 -m spacy download en_core_web_lg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install backend dependencies
