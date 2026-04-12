@@ -1,0 +1,11 @@
+node_modules
+client/node_modules
+client/dist
+data/fairhire.db
+data/.kaggle_downloaded
+data/UpdatedResumeDataSet.csv
+data/bias_test_results.json
+uploads/*
+.env
+.git
+*.tar.gz
