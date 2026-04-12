@@ -40,11 +40,18 @@ function UploadPage() {
         formData.append('consent', 'true');
 
         const uploadRes = await api.uploadResume(formData);
-        showToast(`Uploaded: ${file.name} (${uploadRes.pii_items_removed} PII items removed)`);
+        showToast(`Uploaded: ${file.name} (${uploadRes.pii_items_removed} PII items removed via ${uploadRes.pii_engine === 'presidio' ? 'Presidio' : 'Regex'})`);
 
         // Auto-evaluate
         const evalRes = await api.evaluateCandidate(uploadRes.id, selectedJob);
-        newResults.push({ filename: file.name, candidateId: uploadRes.id, ...evalRes });
+        newResults.push({
+          filename: file.name, candidateId: uploadRes.id,
+          pii_engine: uploadRes.pii_engine,
+          pii_items_removed: uploadRes.pii_items_removed,
+          pii_entities_found: uploadRes.pii_entities_found,
+          pii_removals: uploadRes.pii_removals,
+          ...evalRes,
+        });
       } catch (err) {
         showToast(`Failed: ${file.name} – ${err.message}`, 'error');
       }
@@ -198,6 +205,60 @@ function UploadPage() {
             <div style={{ marginTop: '16px', padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', fontSize: '13px', color: 'var(--text-secondary)' }}>
               <strong style={{ color: 'var(--text-primary)' }}>Latest Explanation:</strong><br/>
               {results[0].explanation}
+            </div>
+          )}
+
+          {/* PII Scrubbing Details */}
+          {results[0]?.pii_engine && (
+            <div style={{ marginTop: '12px', padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={results[0].pii_engine === 'presidio' ? 'var(--green)' : 'var(--yellow)'} strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>PII Scrubbing Report</strong>
+                <span style={{
+                  fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
+                  background: results[0].pii_engine === 'presidio' ? 'var(--green-soft)' : 'var(--yellow-soft)',
+                  color: results[0].pii_engine === 'presidio' ? 'var(--green)' : 'var(--yellow)',
+                }}>
+                  {results[0].pii_engine === 'presidio' ? 'Microsoft Presidio' : 'Regex Fallback'}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                {results[0].pii_items_removed || 0} PII item(s) detected and removed
+              </div>
+
+              {results[0].pii_entities_found?.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                  {results[0].pii_entities_found.map(entity => (
+                    <span key={entity} style={{
+                      fontSize: '10px', fontFamily: 'var(--font-mono)', padding: '2px 8px',
+                      borderRadius: '4px', background: 'var(--accent-soft)', color: 'var(--accent)',
+                    }}>
+                      {entity}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {results[0].pii_removals?.length > 0 && (
+                <details style={{ fontSize: '12px' }}>
+                  <summary style={{ cursor: 'pointer', color: 'var(--accent)' }}>View all {results[0].pii_removals.length} detections</summary>
+                  <div style={{ marginTop: '8px', maxHeight: '150px', overflow: 'auto' }}>
+                    {results[0].pii_removals.map((r, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '8px', padding: '3px 0', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', minWidth: '120px', color: 'var(--accent)' }}>{r.type}</span>
+                        <span style={{ fontSize: '11px' }}>confidence: {(r.score || 0).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {results[0].pii_engine !== 'presidio' && (
+                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--yellow)', fontStyle: 'italic' }}>
+                  Tip: Install Microsoft Presidio for more accurate PII detection (NLP-based name, address, and entity recognition)
+                </div>
+              )}
             </div>
           )}
         </div>
