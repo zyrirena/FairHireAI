@@ -5,7 +5,7 @@ WORKDIR /app
 # Install Python, Presidio, and reportlab for PDF generation
 RUN apt-get update && apt-get install -y python3 python3-pip --no-install-recommends \
     && pip3 install reportlab presidio-analyzer presidio-anonymizer spacy --break-system-packages \
-    && python3 -m spacy download en_core_web_lg \
+    && PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m spacy download en_core_web_lg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install backend dependencies
