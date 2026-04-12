@@ -1,0 +1,33 @@
+{
+  "name": "fairhire-ai",
+  "version": "1.0.0",
+  "description": "FairHire AI – Bias-Aware Resume Screening Assistant (Local MVP)",
+  "scripts": {
+    "install:all": "npm install && cd client && npm install",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "node server/index.js",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "node server/index.js",
+    "seed": "node server/scripts/seed.js",
+    "test:bias": "node server/scripts/biasTester.js",
+    "setup": "npm run install:all && npm run build && npm run seed"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "adm-zip": "^0.5.16",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
+    "concurrently": "^9.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.8.0",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "pdf-parse": "^1.1.1",
+    "sql.js": "^1.11.0",
+    "uuid": "^11.1.0"
+  }
+}

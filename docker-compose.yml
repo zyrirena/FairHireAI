@@ -1,0 +1,17 @@
+services:
+  fairhire:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - fairhire-data:/app/data
+      - fairhire-uploads:/app/uploads
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+
+volumes:
+  fairhire-data:
+  fairhire-uploads:
