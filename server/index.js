@@ -8,6 +8,8 @@ const { downloadDataset, loadDatasetIntoDB } = require('./modules/kaggleDownload
 const { logAction } = require('./modules/auditLogger');
 const { createUser } = require('./modules/userModel');
 
+const { isPresidioAvailable } = require('./modules/piiScrubber');
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -24,7 +26,13 @@ app.use('/api/evaluations', require('./routes/evaluations'));
 
 app.get('/api/health', (req, res) => {
   const isMock = process.env.MOCK_MODE === 'true' || !process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'your_anthropic_api_key_here';
-  res.json({ status: 'ok', mode: isMock ? 'mock' : 'live', timestamp: new Date().toISOString(), label: 'Local Bias-Aware AI Hiring Assistant (Secure Testing Version)' });
+  res.json({
+    status: 'ok',
+    mode: isMock ? 'mock' : 'live',
+    pii_engine: isPresidioAvailable() ? 'presidio' : 'regex',
+    timestamp: new Date().toISOString(),
+    label: 'Local Bias-Aware AI Hiring Assistant (Secure Testing Version)',
+  });
 });
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));

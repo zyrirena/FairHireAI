@@ -42,15 +42,23 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
     const db = await getDB();
     const id = uuidv4();
     const rawText = await parseResume(req.file.path);
-    const { scrubbed, removals } = scrubPII(rawText);
+    const { scrubbed, removals, engine, entities_found } = scrubPII(rawText);
     const deleteAfter = new Date(Date.now() + parseInt(process.env.DATA_RETENTION_DAYS || '120') * 86400000).toISOString();
 
     db.prepare('INSERT INTO candidates (id, original_filename, anonymized_text, raw_text, file_path, consent_given, uploaded_by, delete_after) VALUES (?, ?, ?, ?, ?, 1, ?, ?)').run(id, req.file.originalname, scrubbed, rawText, req.file.path, req.user.id, deleteAfter);
     await logUpload(id, req.file.originalname);
     await logPIIScrub(id, removals.length);
-    await logActivity(req.user.id, req.user.email, req.user.role, 'UPLOAD_RESUME', { candidate_id: id, filename: req.file.originalname, pii_removed: removals.length });
+    await logActivity(req.user.id, req.user.email, req.user.role, 'UPLOAD_RESUME', { candidate_id: id, filename: req.file.originalname, pii_removed: removals.length, pii_engine: engine });
 
-    res.status(201).json({ id, filename: req.file.originalname, pii_items_removed: removals.length, text_preview: scrubbed.substring(0, 300) + '...' });
+    res.status(201).json({
+      id,
+      filename: req.file.originalname,
+      pii_items_removed: removals.length,
+      pii_engine: engine || 'regex',
+      pii_entities_found: entities_found || [],
+      pii_removals: removals.map(r => ({ type: r.type, score: r.score })),
+      text_preview: scrubbed.substring(0, 300) + '...',
+    });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
