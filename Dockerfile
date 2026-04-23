@@ -2,9 +2,9 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install Python, Presidio, and reportlab for PDF generation
+# Install Python, Presidio, Fairlearn, and reportlab
 RUN apt-get update && apt-get install -y python3 python3-pip --no-install-recommends \
-    && pip3 install reportlab presidio-analyzer presidio-anonymizer spacy --break-system-packages \
+    && pip3 install reportlab presidio-analyzer presidio-anonymizer spacy fairlearn scikit-learn --break-system-packages \
     && PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m spacy download en_core_web_lg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -21,7 +21,6 @@ RUN cd client && npm run build
 # Copy server code
 COPY server/ ./server/
 COPY samples/ ./samples/
-COPY .env.example ./.env.example
 
 # Create data directories
 RUN mkdir -p data uploads

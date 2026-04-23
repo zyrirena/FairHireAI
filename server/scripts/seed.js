@@ -26,8 +26,10 @@ async function seed() {
   console.log('Creating default users...');
   await createUser('admin@fairhire.local', 'Admin123!', 'ADMIN', 'Admin');
   await createUser('recruiter@fairhire.local', 'Recruiter123!', 'HR_RECRUITER', 'Recruiter');
+  await createUser('manager@fairhire.local', 'Manager123!', 'HIRING_MANAGER', 'Hiring Manager');
   console.log('  ✓ admin@fairhire.local (password: Admin123!)');
   console.log('  ✓ recruiter@fairhire.local (password: Recruiter123!)');
+  console.log('  ✓ manager@fairhire.local (password: Manager123!)');
 
   await downloadDataset();
   const dataCount = await loadDatasetIntoDB();
@@ -56,6 +58,25 @@ async function seed() {
     const overall = ((result.score_breakdown.skills_match || 0) + (result.score_breakdown.experience || 0) + (result.score_breakdown.education || 0) + (result.score_breakdown.certifications || 5)) / 4;
     db.prepare('INSERT INTO evaluations (id, candidate_id, job_id, qualification, skills_match_score, experience_score, education_score, overall_score, explanation, full_response, is_mock) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(eid, cid, jobIds[i], result.qualification, result.score_breakdown.skills_match, result.score_breakdown.experience, result.score_breakdown.education, overall, result.explanation, JSON.stringify(result), result.is_mock ? 1 : 0);
     console.log(`    → ${result.qualification} (${overall.toFixed(1)}/10)`);
+  }
+
+  // Seed default risk register entries (EU AI Act requirement)
+  const defaultRisks = [
+    { name: 'Bias in skill keyword matching', desc: 'AI may over-weight exact keyword matches, disadvantaging candidates who describe skills differently.', severity: 'medium', likelihood: 'medium', mitigation: 'PII scrubbing + Presidio NLP + Fairlearn demographic parity testing' },
+    { name: 'Missing resume data', desc: 'Incomplete resumes may receive unfairly low scores due to missing fields.', severity: 'low', likelihood: 'high', mitigation: 'Mock mode fallback scoring; recruiter override capability' },
+    { name: 'AI model hallucination', desc: 'Claude may infer qualifications not present in the resume text.', severity: 'high', likelihood: 'low', mitigation: 'Structured JSON output enforced; validation layer before saving; human review required' },
+    { name: 'Over-reliance on AI scoring', desc: 'Users may treat AI scores as definitive rather than advisory.', severity: 'medium', likelihood: 'medium', mitigation: 'All results labeled "AI-assisted recommendation"; HR certification gate; hiring manager final decision' },
+    { name: 'Scoring weight manipulation', desc: 'Extreme scoring weights could create discriminatory outcomes.', severity: 'medium', likelihood: 'low', mitigation: 'Weights capped at 0.7 max per criterion; must sum to 1.0; validated on input' },
+    { name: 'PII leakage to AI model', desc: 'Personally identifiable information may survive scrubbing and reach the AI.', severity: 'high', likelihood: 'low', mitigation: 'Microsoft Presidio NLP + regex fallback; 13+ entity types detected; verification audit in bias tests' },
+  ];
+  const existingRisks = db.prepare('SELECT COUNT(*) as count FROM risk_register').get();
+  if (existingRisks.count === 0) {
+    for (const r of defaultRisks) {
+      db.prepare('INSERT INTO risk_register (id, risk_name, description, severity, likelihood, mitigation_strategy, identified_by, identified_by_email, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+        uuidv4(), r.name, r.desc, r.severity, r.likelihood, r.mitigation, 'system', 'system@fairhire.ai', 'monitoring'
+      );
+    }
+    console.log(`  ✓ ${defaultRisks.length} default risk register entries`);
   }
 
   console.log('\n✅ Seed complete!\n');

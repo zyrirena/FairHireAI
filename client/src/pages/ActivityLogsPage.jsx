@@ -1,17 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import { useAuth } from '../components/AuthContext';
 
 function ActivityLogsPage() {
-  const [logs, setLogs] = useState([]);
+  const { user: currentUser } = useAuth();
+  const [tab, setTab] = useState('users');
   const [users, setUsers] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ user_id: '', action: '', date_from: '', date_to: '' });
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    api.getUsers().then(setUsers).catch(() => {});
-    loadLogs();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
+
+  const loadAll = () => {
+    setLoading(true);
+    Promise.all([api.getUsers(), api.getActivityLogs()])
+      .then(([u, l]) => { setUsers(u); setLogs(l); })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleDisable = async (id, email) => {
+    if (!confirm(`Disable account for ${email}? They will not be able to log in.`)) return;
+    try {
+      await api.disableUser(id);
+      showToast(`${email} disabled`);
+      loadAll();
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const handleEnable = async (id, email) => {
+    try {
+      await api.enableUser(id);
+      showToast(`${email} enabled`);
+      loadAll();
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const handleRoleChange = async (id, email, newRole) => {
+    if (!confirm(`Change ${email} role to ${newRole}?`)) return;
+    try {
+      await api.changeUserRole(id, newRole);
+      showToast(`${email} role changed to ${newRole}`);
+      loadAll();
+    } catch (err) { showToast(err.message, 'error'); }
+  };
 
   const loadLogs = (f) => {
     setLoading(true);
@@ -21,8 +60,6 @@ function ActivityLogsPage() {
     api.getActivityLogs(clean).then(setLogs).catch(console.error).finally(() => setLoading(false));
   };
 
-  const handleFilter = () => loadLogs();
-
   const handleExport = async () => {
     try {
       const data = await api.exportActivityLogs(filters);
@@ -31,91 +68,161 @@ function ActivityLogsPage() {
       const a = document.createElement('a');
       a.href = url; a.download = `activity_logs_${new Date().toISOString().split('T')[0]}.json`;
       a.click(); URL.revokeObjectURL(url);
-      setToast({ msg: 'Activity logs exported', type: 'success' });
-      setTimeout(() => setToast(null), 3000);
-    } catch (err) {
-      setToast({ msg: err.message, type: 'error' });
-      setTimeout(() => setToast(null), 3000);
-    }
+      showToast('Activity logs exported');
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   const actionColor = (action) => {
     if (action?.includes('LOGIN')) return 'var(--green)';
     if (action?.includes('UPLOAD')) return 'var(--accent)';
-    if (action?.includes('DELETE')) return 'var(--red)';
+    if (action?.includes('DELETE') || action?.includes('DISABLED')) return 'var(--red)';
     if (action?.includes('OVERRIDE')) return 'var(--orange)';
-    if (action?.includes('EVALUATION')) return 'var(--accent)';
+    if (action?.includes('ENABLED')) return 'var(--green)';
     return 'var(--text-secondary)';
   };
 
   return (
     <div>
       <div className="page-header">
-        <h2>User Activity Logs</h2>
-        <p>Track all user actions across the system. Admin only.</p>
+        <h2>Admin Panel</h2>
+        <p>Manage user accounts, review activity logs, and track system usage.</p>
       </div>
 
-      {/* Filters */}
-      <div className="card" style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="form-group" style={{ margin: 0, minWidth: '160px' }}>
-            <label>User</label>
-            <select value={filters.user_id} onChange={e => setFilters(p => ({...p, user_id: e.target.value}))}>
-              <option value="">All users</option>
-              {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
-            </select>
-          </div>
-          <div className="form-group" style={{ margin: 0, minWidth: '140px' }}>
-            <label>Action</label>
-            <input value={filters.action} onChange={e => setFilters(p => ({...p, action: e.target.value}))} placeholder="e.g. LOGIN" />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>From</label>
-            <input type="date" value={filters.date_from} onChange={e => setFilters(p => ({...p, date_from: e.target.value}))} />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>To</label>
-            <input type="date" value={filters.date_to} onChange={e => setFilters(p => ({...p, date_to: e.target.value}))} />
-          </div>
-          <button className="btn btn-primary btn-sm" onClick={handleFilter} style={{ height: '38px' }}>Filter</button>
-          <button className="btn btn-secondary btn-sm" onClick={handleExport} style={{ height: '38px' }}>Export JSON</button>
-        </div>
+      <div className="tabs">
+        <button className={`tab ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>User Management</button>
+        <button className={`tab ${tab === 'logs' ? 'active' : ''}`} onClick={() => setTab('logs')}>Activity Logs</button>
       </div>
 
-      {/* Logs Table */}
-      <div className="card">
-        <div className="card-header">
-          <h3>Activity Trail ({logs.length} entries)</h3>
-        </div>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px' }}><div className="spinner" style={{ margin: '0 auto' }}></div></div>
-        ) : logs.length === 0 ? (
-          <div className="empty-state"><div className="icon">📝</div><h3>No activity logs</h3></div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>User</th><th>Role</th><th>Action</th><th>Details</th><th>Time</th></tr>
-              </thead>
-              <tbody>
-                {logs.map(log => {
-                  let meta = {};
-                  try { meta = JSON.parse(log.metadata || '{}'); } catch {}
-                  return (
-                    <tr key={log.id}>
-                      <td style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500 }}>{log.user_email || '—'}</td>
-                      <td><span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: log.role === 'ADMIN' ? 'var(--accent-soft)' : 'var(--green-soft)', color: log.role === 'ADMIN' ? 'var(--accent)' : 'var(--green)', fontWeight: 600 }}>{log.role}</span></td>
-                      <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', padding: '2px 6px', borderRadius: '3px', background: 'var(--bg-input)', color: actionColor(log.action) }}>{log.action}</span></td>
-                      <td style={{ fontSize: '11px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{Object.entries(meta).map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ')}</td>
-                      <td style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{new Date(log.created_at).toLocaleString()}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      {/* ── User Management Tab ── */}
+      {tab === 'users' && (
+        <div className="card">
+          <div className="card-header">
+            <h3>All Users ({users.length})</h3>
           </div>
-        )}
-      </div>
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}><div className="spinner" style={{ margin: '0 auto' }}></div></div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {users.map(u => {
+                    const isMe = u.id === currentUser.id;
+                    const isDisabled = u.disabled === 1;
+                    return (
+                      <tr key={u.id} style={{ opacity: isDisabled ? 0.5 : 1 }}>
+                        <td style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                          {u.email}
+                          {isMe && <span style={{ fontSize: '10px', color: 'var(--accent)', marginLeft: '6px' }}>(you)</span>}
+                        </td>
+                        <td>{u.display_name || '—'}</td>
+                        <td>
+                          <span style={{
+                            fontSize: '10px', padding: '2px 8px', borderRadius: '4px', fontWeight: 600,
+                            background: u.role === 'ADMIN' ? 'var(--accent-soft)' : 'var(--green-soft)',
+                            color: u.role === 'ADMIN' ? 'var(--accent)' : 'var(--green)',
+                          }}>{u.role}</span>
+                        </td>
+                        <td>
+                          {isDisabled ? (
+                            <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 600 }}>Disabled</span>
+                          ) : (
+                            <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>Active</span>
+                          )}
+                        </td>
+                        <td style={{ fontSize: '12px' }}>{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td>
+                          {!isMe && (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {isDisabled ? (
+                                <button className="btn btn-primary btn-sm" onClick={() => handleEnable(u.id, u.email)} style={{ fontSize: '10px', padding: '3px 8px' }}>Enable</button>
+                              ) : (
+                                <button className="btn btn-danger btn-sm" onClick={() => handleDisable(u.id, u.email)} style={{ fontSize: '10px', padding: '3px 8px' }}>Disable</button>
+                              )}
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => handleRoleChange(u.id, u.email, u.role === 'ADMIN' ? 'HR_RECRUITER' : 'ADMIN')}
+                                style={{ fontSize: '10px', padding: '3px 8px' }}
+                              >
+                                {u.role === 'ADMIN' ? 'Make Recruiter' : 'Make Admin'}
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Activity Logs Tab ── */}
+      {tab === 'logs' && (
+        <>
+          <div className="card" style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <div className="form-group" style={{ margin: 0, minWidth: '160px' }}>
+                <label>User</label>
+                <select value={filters.user_id} onChange={e => setFilters(p => ({...p, user_id: e.target.value}))}>
+                  <option value="">All users</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
+                </select>
+              </div>
+              <div className="form-group" style={{ margin: 0, minWidth: '140px' }}>
+                <label>Action</label>
+                <input value={filters.action} onChange={e => setFilters(p => ({...p, action: e.target.value}))} placeholder="e.g. LOGIN" />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>From</label>
+                <input type="date" value={filters.date_from} onChange={e => setFilters(p => ({...p, date_from: e.target.value}))} />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>To</label>
+                <input type="date" value={filters.date_to} onChange={e => setFilters(p => ({...p, date_to: e.target.value}))} />
+              </div>
+              <button className="btn btn-primary btn-sm" onClick={() => loadLogs()} style={{ height: '38px' }}>Filter</button>
+              <button className="btn btn-secondary btn-sm" onClick={handleExport} style={{ height: '38px' }}>Export JSON</button>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-header"><h3>Activity Trail ({logs.length} entries)</h3></div>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}><div className="spinner" style={{ margin: '0 auto' }}></div></div>
+            ) : logs.length === 0 ? (
+              <div className="empty-state"><div className="icon">📝</div><h3>No activity logs</h3></div>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>User</th><th>Role</th><th>Action</th><th>Details</th><th>Time</th></tr></thead>
+                  <tbody>
+                    {logs.map(log => {
+                      let meta = {};
+                      try { meta = JSON.parse(log.metadata || '{}'); } catch {}
+                      return (
+                        <tr key={log.id}>
+                          <td style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500 }}>{log.user_email || '—'}</td>
+                          <td><span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', background: log.role === 'ADMIN' ? 'var(--accent-soft)' : 'var(--green-soft)', color: log.role === 'ADMIN' ? 'var(--accent)' : 'var(--green)', fontWeight: 600 }}>{log.role}</span></td>
+                          <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', padding: '2px 6px', borderRadius: '3px', background: 'var(--bg-input)', color: actionColor(log.action) }}>{log.action}</span></td>
+                          <td style={{ fontSize: '11px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{Object.entries(meta).map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ')}</td>
+                          <td style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>{new Date(log.created_at).toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {toast && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </div>
   );

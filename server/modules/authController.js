@@ -17,6 +17,7 @@ function verifyToken(token) {
 async function login(email, password) {
   const user = await authenticateUser(email, password);
   if (!user) return null;
+  if (user.error === 'disabled') return { error: 'disabled' };
   const token = generateToken(user);
   await logActivity(user.id, user.email, user.role, 'LOGIN', { method: 'password' });
   return { token, user };

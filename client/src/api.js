@@ -80,6 +80,7 @@ export const api = {
   getJobs: () => apiFetch('/jobs'),
   getJob: (id) => apiFetch(`/jobs/${id}`),
   createJob: (data) => apiFetch('/jobs', { method: 'POST', body: JSON.stringify(data) }),
+  updateJob: (id, data) => apiFetch(`/jobs/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteJob: (id) => apiFetch(`/jobs/${id}`, { method: 'DELETE' }),
 
   // Candidates
@@ -139,8 +140,24 @@ export const api = {
   getDatasetRecords: (limit = 50, offset = 0, category = '') =>
     apiFetch(`/evaluations/dataset/records?limit=${limit}&offset=${offset}${category ? `&category=${category}` : ''}`),
 
+  // Fairlearn
+  getFairlearnStatus: () => apiFetch('/evaluations/fairlearn/status'),
+  getFairlearnBiasAnalysis: () => apiFetch('/evaluations/fairlearn/bias-analysis'),
+  getFairlearnLiveAnalysis: (jobId = '') => apiFetch(`/evaluations/fairlearn/live-analysis${jobId ? `?job_id=${jobId}` : ''}`),
+  runFairlearnAnalysis: (data) => apiFetch('/evaluations/fairlearn/analyze', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Hiring Manager
+  getCertifiedJobs: () => apiFetch('/evaluations/hiring-manager/certified-jobs'),
+  getHMCandidates: (jobId) => apiFetch(`/evaluations/hiring-manager/candidates/${jobId}`),
+  submitHiringDecision: (data) => apiFetch('/evaluations/hiring-manager/decision', { method: 'POST', body: JSON.stringify(data) }),
+  getHiringDecision: (jobId) => apiFetch(`/evaluations/hiring-manager/decision/${jobId}`),
+
   // Admin
   getUsers: () => apiFetch('/auth/users'),
+  disableUser: (id) => apiFetch(`/auth/users/${id}/disable`, { method: 'POST' }),
+  enableUser: (id) => apiFetch(`/auth/users/${id}/enable`, { method: 'POST' }),
+  changeUserRole: (id, role) => apiFetch(`/auth/users/${id}/role`, { method: 'POST', body: JSON.stringify({ role }) }),
+  getProblemReports: () => apiFetch('/auth/problem-reports'),
   getActivityLogs: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return apiFetch(`/auth/activity-logs?${q}`);
@@ -151,4 +168,20 @@ export const api = {
   },
   getUsage: () => apiFetch('/auth/usage'),
   resetUsage: (month) => apiFetch('/auth/usage/reset', { method: 'POST', body: JSON.stringify({ month }) }),
+
+  // Problem Report
+  reportProblem: (description, page) => apiFetch('/auth/report-problem', { method: 'POST', body: JSON.stringify({ description, page }) }),
+
+  // Risk Register (Admin)
+  getRisks: () => apiFetch('/audit/risks'),
+  createRisk: (data) => apiFetch('/audit/risks', { method: 'POST', body: JSON.stringify(data) }),
+  updateRisk: (id, data) => apiFetch(`/audit/risks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRisk: (id) => apiFetch(`/audit/risks/${id}`, { method: 'DELETE' }),
+
+  // Safety Checks (Admin)
+  getSafetyStats: () => apiFetch('/api/safety/stats'),
+  getSafetyLogs: (filters) => apiFetch(`/api/safety/logs?${new URLSearchParams(filters)}`),
+
+  // Public audit summary (no auth)
+  getPublicAuditSummary: () => fetch(`${BASE}/public/audit-summary`).then(r => r.json()),
 };

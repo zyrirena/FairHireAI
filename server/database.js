@@ -8,6 +8,12 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'HR_RECRUITER', display_name TEXT,
+  disabled INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS problem_reports (
+  id TEXT PRIMARY KEY, user_id TEXT, user_email TEXT,
+  subject TEXT, description TEXT, page TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS user_activity_logs (
@@ -23,8 +29,11 @@ CREATE TABLE IF NOT EXISTS usage_tracking (
 );
 CREATE TABLE IF NOT EXISTS job_descriptions (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL,
-  requirements TEXT, min_education TEXT, min_experience_years INTEGER DEFAULT 0,
-  required_skills TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  department TEXT DEFAULT '', requirements TEXT,
+  min_education TEXT, min_experience_years INTEGER DEFAULT 0,
+  required_skills TEXT, preferred_skills TEXT DEFAULT '',
+  scoring_weights TEXT DEFAULT '{"skills":0.4,"experience":0.3,"education":0.1,"certifications":0.2}',
+  created_by TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS candidates (
   id TEXT PRIMARY KEY, original_filename TEXT, anonymized_text TEXT, raw_text TEXT,
@@ -61,7 +70,28 @@ CREATE TABLE IF NOT EXISTS bias_test_results (
 );
 CREATE TABLE IF NOT EXISTS dataset_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT, resume_text TEXT,
-  source TEXT DEFAULT 'kaggle', loaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  source TEXT DEFAULT 'direct_upload', ingestion_method TEXT DEFAULT 'manual_upload',
+  consent_flag INTEGER DEFAULT 1, preprocessing_notes TEXT DEFAULT '',
+  loaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS risk_register (
+  id TEXT PRIMARY KEY, risk_name TEXT NOT NULL, description TEXT,
+  severity TEXT DEFAULT 'medium', likelihood TEXT DEFAULT 'medium',
+  mitigation_strategy TEXT, identified_by TEXT, identified_by_email TEXT,
+  status TEXT DEFAULT 'open', resolved_at DATETIME,
+  identified_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS safety_logs (
+  id TEXT PRIMARY KEY, user_id TEXT, response TEXT, context TEXT,
+  score REAL DEFAULT 0.5, risk_level TEXT DEFAULT 'medium',
+  allowed INTEGER DEFAULT 1, confidence TEXT DEFAULT 'unknown',
+  details TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS hiring_decisions (
+  id TEXT PRIMARY KEY, job_id TEXT NOT NULL, hiring_manager_id TEXT NOT NULL,
+  hiring_manager_email TEXT, selected_candidate_id TEXT,
+  alternates TEXT, notes TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`;
 
 let db = null;
