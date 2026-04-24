@@ -182,6 +182,13 @@ export const api = {
   getSafetyStats: () => apiFetch('/api/safety/stats'),
   getSafetyLogs: (filters) => apiFetch(`/api/safety/logs?${new URLSearchParams(filters)}`),
 
+  // Compliance & Audit Integrity (Admin)
+  getComplianceStatus: () => apiFetch('/audit/compliance-status'),
+  verifyAuditIntegrity: () => apiFetch('/audit/integrity'),
+  getCryptoLogs: (limit = 100) => apiFetch(`/audit/crypto-logs?limit=${limit}`),
+  getAIF360Analysis: (jobId) => apiFetch(`/audit/aif360/analysis${jobId ? '?job_id=' + jobId : ''}`),
+  getAIF360Status: () => apiFetch('/audit/aif360/status'),
+
   // Public audit summary (no auth)
   getPublicAuditSummary: () => fetch(`${BASE}/public/audit-summary`).then(r => r.json()),
 };

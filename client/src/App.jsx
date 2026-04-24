@@ -15,6 +15,7 @@ import HiringManagerPage from './pages/HiringManagerPage';
 import JobManagementPage from './pages/JobManagementPage';
 import RiskRegisterPage from './pages/RiskRegisterPage';
 import SafetyDashboard from './pages/SafetyDashboard';
+import ComplianceDashboardPage from './pages/ComplianceDashboardPage';
 import RecruiterDashboard from './pages/RecruiterDashboard';
 import ReportProblemButton from './components/ReportProblemButton';
 
@@ -125,6 +126,10 @@ function MainApp() {
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   AI Safety Dashboard
                 </NavLink>
+                <NavLink to="/admin/compliance" className={({isActive}) => isActive ? 'active' : ''}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                  Compliance & Audit
+                </NavLink>
               </>
             )}
           </nav>
@@ -210,6 +215,7 @@ function MainApp() {
                 <Route path="/admin/usage" element={<UsagePage />} />
                 <Route path="/admin/risks" element={<RiskRegisterPage />} />
                 <Route path="/admin/safety" element={<SafetyDashboard />} />
+                <Route path="/admin/compliance" element={<ComplianceDashboardPage />} />
               </>
             )}
           </Routes>

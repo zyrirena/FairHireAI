@@ -62,6 +62,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, entity_type TEXT,
   entity_id TEXT, details TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS crypto_audit_log (
+  sequence_num INTEGER PRIMARY KEY AUTOINCREMENT,
+  log_id TEXT UNIQUE NOT NULL, timestamp TEXT NOT NULL,
+  user_id TEXT, action TEXT NOT NULL, entity_type TEXT, entity_id TEXT,
+  input_data TEXT, output_data TEXT,
+  previous_hash TEXT NOT NULL, current_hash TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS bias_test_results (
   id TEXT PRIMARY KEY, test_name TEXT, job_id TEXT, disparate_impact_ratio REAL,
   group_a_label TEXT, group_b_label TEXT, group_a_pass_rate REAL,

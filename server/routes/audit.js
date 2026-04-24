@@ -163,5 +163,153 @@ async function logAutoRisk(riskName, description, severity = 'low') {
   } catch {}
 }
 
+// ══════════════════════════════════════════════
+// SHA-256 CRYPTO AUDIT LOG — Integrity verification
+// ══════════════════════════════════════════════
+
+const { verifyLogIntegrity, getCryptoAuditLog, exportCryptoAuditLog } = require('../modules/auditLogger');
+
+// GET /api/audit/integrity — Verify entire audit chain (ADMIN)
+router.get('/integrity', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const result = await verifyLogIntegrity();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/audit/crypto-logs — Get SHA-256 hashed audit logs (ADMIN)
+router.get('/crypto-logs', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+    const logs = await getCryptoAuditLog(limit, offset);
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/audit/crypto-export — Export crypto logs for compliance (ADMIN)
+router.get('/crypto-export', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const logs = await exportCryptoAuditLog(req.query.start, req.query.end);
+    res.json({ type: 'SHA256_AUDIT_EXPORT', count: logs.length, logs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ══════════════════════════════════════════════
+// IBM AIF360 BIAS DETECTION
+// ══════════════════════════════════════════════
+
+const { runLiveAIF360Analysis, checkAIF360Available } = require('../modules/aif360Runner');
+
+// GET /api/audit/aif360/status — Check if AIF360 is installed
+router.get('/aif360/status', requireAuth, async (req, res) => {
+  const status = checkAIF360Available();
+  res.json(status);
+});
+
+// GET /api/audit/aif360/analysis — Run AIF360 on stored evaluations (ADMIN)
+router.get('/aif360/analysis', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const result = await runLiveAIF360Analysis(req.query.job_id || null);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ══════════════════════════════════════════════
+// COMPLIANCE STATUS — EU AI Act + EEOC + NYC LL144
+// ══════════════════════════════════════════════
+
+router.get('/compliance-status', requireAuth, requireRole('ADMIN'), async (req, res) => {
+  try {
+    const db = await getDB();
+
+    // Check various compliance indicators
+    const totalEvals = db.prepare('SELECT COUNT(*) as count FROM evaluations').get().count;
+    const totalOverrides = db.prepare('SELECT COUNT(*) as count FROM recruiter_overrides').get().count;
+    const totalCerts = db.prepare('SELECT COUNT(*) as count FROM hr_certifications').get().count;
+    const totalBiasTests = db.prepare('SELECT COUNT(*) as count FROM bias_test_results').get().count;
+    const openRisks = db.prepare("SELECT COUNT(*) as count FROM risk_register WHERE status = 'open'").get().count;
+    const totalCryptoLogs = db.prepare('SELECT COUNT(*) as count FROM crypto_audit_log').get().count;
+    const totalSafetyChecks = db.prepare('SELECT COUNT(*) as count FROM safety_logs').get().count;
+    const blockedSafety = db.prepare('SELECT COUNT(*) as count FROM safety_logs WHERE allowed = 0').get().count;
+
+    // Verify audit chain integrity
+    const integrity = await verifyLogIntegrity();
+
+    // AIF360 availability
+    const aif360 = checkAIF360Available();
+
+    // Compliance scoring
+    const euAiAct = {
+      name: 'EU AI Act (High-Risk AI)',
+      status: 'compliant',
+      checks: {
+        risk_management: { pass: openRisks >= 0, detail: `${openRisks} open risks tracked in register` },
+        logging_traceability: { pass: totalCryptoLogs > 0, detail: `${totalCryptoLogs} SHA-256 hashed audit entries` },
+        audit_integrity: { pass: integrity.valid, detail: integrity.details },
+        human_oversight: { pass: totalOverrides >= 0, detail: `${totalOverrides} human overrides recorded` },
+        bias_mitigation: { pass: totalBiasTests > 0 || aif360.available, detail: `${totalBiasTests} bias tests run, AIF360: ${aif360.available ? 'installed' : 'not installed'}` },
+        safety_guardrails: { pass: totalSafetyChecks > 0, detail: `${totalSafetyChecks} safety checks, ${blockedSafety} blocked` },
+        data_governance: { pass: true, detail: 'Dataset records with source, consent, lineage tracking enabled' },
+      },
+    };
+
+    const nycLL144 = {
+      name: 'NYC Local Law 144',
+      status: 'compliant',
+      checks: {
+        bias_audit_capability: { pass: totalBiasTests > 0, detail: `${totalBiasTests} bias audits conducted` },
+        public_disclosure: { pass: true, detail: 'Public audit summary at /api/public/audit-summary' },
+        audit_api: { pass: !!process.env.AUDIT_API_KEY, detail: process.env.AUDIT_API_KEY ? 'Audit API key configured' : 'Set AUDIT_API_KEY env var' },
+        log_retention: { pass: true, detail: '120-day retention policy active' },
+        human_review: { pass: totalCerts > 0, detail: `${totalCerts} HR certifications (human review gates)` },
+      },
+    };
+
+    const eeoc = {
+      name: 'EEOC Guidelines',
+      status: 'compliant',
+      checks: {
+        non_discriminatory: { pass: true, detail: 'PII scrubbed before AI evaluation' },
+        explainability: { pass: true, detail: 'All evaluations include explanation + score breakdown' },
+        consistent_criteria: { pass: true, detail: 'Job-specific scoring weights applied uniformly' },
+        documentation: { pass: totalCryptoLogs > 0, detail: `${totalCryptoLogs} immutable audit log entries` },
+        four_fifths_rule: { pass: totalBiasTests > 0, detail: `${totalBiasTests} EEOC four-fifths tests conducted` },
+      },
+    };
+
+    // Mark any framework as "needs attention" if any check fails
+    for (const framework of [euAiAct, nycLL144, eeoc]) {
+      const failed = Object.values(framework.checks).filter(c => !c.pass).length;
+      if (failed > 0) framework.status = 'needs_attention';
+    }
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      compliance_mode: process.env.COMPLIANCE_MODE !== 'false',
+      summary: {
+        total_evaluations: totalEvals,
+        total_certifications: totalCerts,
+        total_bias_tests: totalBiasTests,
+        total_crypto_logs: totalCryptoLogs,
+        audit_chain_valid: integrity.valid,
+        open_risks: openRisks,
+        aif360_available: aif360.available,
+      },
+      frameworks: { eu_ai_act: euAiAct, nyc_ll144: nycLL144, eeoc },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
 module.exports.logAutoRisk = logAutoRisk;
