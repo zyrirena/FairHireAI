@@ -70,6 +70,7 @@ You'll see the login screen.
 |------|-------|----------|
 | **Admin** | admin@fairhire.local | Admin123! |
 | **Recruiter** | recruiter@fairhire.local | Recruiter123! |
+| **Manager** | manager@fairhire.local | Manager123! |
 
 **Admin** can see everything: all users, activity logs, AI usage costs, compliance data.
 
